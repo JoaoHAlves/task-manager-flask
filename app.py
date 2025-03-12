@@ -25,33 +25,56 @@ class Task(db.Model):
     completed = db.Column(db.Boolean, default=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+@app.route("/")
 def home():
-    return "Hello, Flask! Seu servidor está rodando!"
+    return "Bem-vindo ao Task Manager!"
 
-if __name__ == '__main__':
-    app.run(debug=True)
-
-
-
-@app.route('/register', methods=['POST'])
+@app.route('/register', methods=['GET', 'POST'])
 def register():
-    data = request.get_json()
+    if request.method == 'GET':
+        return """
+        <form action="/register" method="post">
+            <input type="text" name="username" placeholder="Username">
+            <input type="password" name="password" placeholder="Password">
+            <button type="submit">Register</button>
+        </form>
+        """
+    
+    data = request.form
     if User.query.filter_by(username=data['username']).first():
         return jsonify({'message': 'Username already exists'}), 400
+
     hashed_password = bcrypt.generate_password_hash(data['password']).decode('utf-8')
     new_user = User(username=data['username'], password=hashed_password)
     db.session.add(new_user)
     db.session.commit()
+    
     return jsonify({'message': 'User registered successfully!'}), 201
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    data = request.get_json()
-    user = User.query.filter_by(username=data['username']).first()
-    if user and bcrypt.check_password_hash(user.password, data['password']):
+    if request.method == 'GET':
+        return """
+        <form action="/login" method="post">
+            <input type="text" name="username" placeholder="Username">
+            <input type="password" name="password" placeholder="Password">
+            <button type="submit">Login</button>
+        </form>
+        """
+    
+    # Suporte a JSON e form-urlencoded
+    data = request.form if request.form else request.get_json()
+    
+    username = data.get('username')
+    password = data.get('password')
+
+    user = User.query.filter_by(username=username).first()
+    if user and bcrypt.check_password_hash(user.password, password):
         access_token = create_access_token(identity=user.id)
         return jsonify({'token': access_token}), 200
+    
     return jsonify({'message': 'Invalid credentials'}), 401
+
 
 if __name__ == '__main__':
     with app.app_context():
